@@ -40,7 +40,7 @@ pre_process_data <- function(df, expl_vars, censor_col, time_col) {
 
   # Return the list (dict)
   return(list(
-    Z=Z,
+    Z=as.matrix(Z),
     time=time,
     censor=censor
   ))
