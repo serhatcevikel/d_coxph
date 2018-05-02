@@ -407,14 +407,32 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
     delta <- abs(sum(beta - beta_old))
     if (delta <= 10^-8) {
       writeln("Betas have settled! Finished iterating!")
+      # computing the standard errors
+      SErrors <- NULL
+      fisher <- solve(-derivatives$secondary)
+      # standard errors are the squared root of the diagonal
+      for(k in 1:dim(fisher)[1]){
+        se_k <- sqrt(fisher[k,k])
+        SErrors <- c(SErrors,se_k)
+      } 
+      #Calculating P and Z values
+      zvalues <- (exp(beta)-1)/SErrors
+      pvalues<- 2*pnorm(-abs(zvalues))
+      pvalues<-format.pval(pvalues, digits = 1)
+      # 95%CI = beta +- 1.96 * SE
+      library(dplyr)
+      results <- data.frame("coef" = round(beta,5), "exp(coef)"=round(exp(beta),5), "SE" = round(SErrors,5))
+      results <- mutate(results, lower_ci = round(exp(coef - 1.96 * SE),5))
+      results <- mutate(results, upper_ci = round(exp(coef + 1.96 * SE),5))
+      results <- mutate(results, "Z"=round(zvalues, 2), "P"=pvalues)
+      row.names(results) <- rownames(beta)
+      print(results)
       break
     }
 
     # Again!!?
     i <- i + 1
   }
-
-  return(beta)
 }
 
 #' Run the computation locally on a SEER dataset
