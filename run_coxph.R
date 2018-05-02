@@ -1,3 +1,24 @@
+#!/usr/bin/env Rscript
+
+
+#' ----------------------------------------------------------------------------
+#' title: run_coxph.R
+#' description:
+#'   User script to run the Cox Proportional Hazards algorithm on the
+#'   PyTaskManager distributed learning infrastructure.
+#'
+#'   This implementation can be used with the PyTaskManager distributed learning
+#'   infrastructure (see https://github.com/mellesies/pytaskmanager/tree/DEV)
+#'   and works with commit [befd87d].
+#' author:
+#'   Melle Sieswerda <m.sieswerda@iknl.nl>
+#'   Anna van der Zalm <a.vanderzalm@iknl.nl>
+#'   Gijs Geleijnse <g.geleijnse@iknl.nl>
+#' date: 02-may-2018
+#' license: MIT License
+#' ----------------------------------------------------------------------------
+
+
 # ******************************************************************************
 # ---- Run the distributed CoxPH algorithm ----
 # ******************************************************************************

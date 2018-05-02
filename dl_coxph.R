@@ -1,9 +1,26 @@
 #!/usr/bin/env Rscript
 
+
+#' ----------------------------------------------------------------------------
+#' title: dl_coxph.R
+#' description:
+#'   Implementation of the distributed Cox Proportional Hazards algorithm based
+#'   on an article from [Lu et al](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5009917/).
+#'
+#'   This implementation can be used with the PyTaskManager distributed learning
+#'   infrastructure (see https://github.com/mellesies/pytaskmanager/tree/DEV)
+#'   and works with commit [befd87d].
+#' author:
+#'   Melle Sieswerda <m.sieswerda@iknl.nl>
+#'   Anna van der Zalm <a.vanderzalm@iknl.nl>
+#'   Gijs Geleijnse <g.geleijnse@iknl.nl>
+#' date: 02-may-2018
+#' license: MIT License
+#' ----------------------------------------------------------------------------
+
+
 # External libraries
-library(abind)
 library(rjson)
-library(httr)
 
 
 # ******************************************************************************
@@ -469,5 +486,4 @@ main <- function() {
 if (!interactive()) {
     main()
 }
-
 
