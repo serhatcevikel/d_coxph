@@ -426,7 +426,7 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
       results <- mutate(results, upper_ci = round(exp(coef + 1.96 * SE),5))
       results <- mutate(results, "Z"=round(zvalues, 2), "P"=pvalues)
       row.names(results) <- rownames(beta)
-      print(results)
+      return(results)
       break
     }
 
