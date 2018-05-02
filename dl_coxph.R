@@ -35,7 +35,7 @@ pre_process_data <- function(df, expl_vars, censor_col, time_col) {
 
   # Return the list (dict)
   return(list(
-    Z=Z,
+    Z=as.matrix(Z),
     time=time,
     censor=censor
   ))
@@ -465,6 +465,18 @@ mock.UMASS <- function() {
   time_col <- "TIME"
   censor_col <- "CENSOR"
 
+  return(mock(df, expl_vars, time_col, censor_col))
+}
+
+mock.UNI <- function() {
+  # Load the entire dataset and split it into parts
+  df <- read.csv("UMASS-uni.csv", sep=";")
+  
+  # Variables frequently used as input for the RPC calls
+  expl_vars <- c("AAE")
+  time_col <- "TIME"
+  censor_col <- "CENSOR"
+  
   return(mock(df, expl_vars, time_col, censor_col))
 }
 
