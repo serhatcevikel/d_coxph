@@ -21,6 +21,7 @@
 
 # External libraries
 library(rjson)
+library(dplyr)
 
 
 # ******************************************************************************
@@ -395,7 +396,7 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
   delta <- 0
 
   i = 1
-  while (i <= 6) {
+  while (i <= 20) {
     writeln(sprintf("-- Iteration %i --", i))
     writeln("Beta's:")
     print(beta)
@@ -431,7 +432,29 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
     i <- i + 1
   }
 
-  return(beta)
+  # Computing the standard errors
+  SErrors <- NULL
+  fisher <- solve(-derivatives$secondary)
+
+  # Standard errors are the squared root of the diagonal
+  for(k in 1:dim(fisher)[1]){
+    se_k <- sqrt(fisher[k,k])
+    SErrors <- c(SErrors,se_k)
+  }
+
+  # Calculating P and Z values
+  zvalues <- (exp(beta)-1)/SErrors
+  pvalues <- 2*pnorm(-abs(zvalues))
+  pvalues <- format.pval(pvalues, digits = 1)
+
+  # 95%CI = beta +- 1.96 * SE
+  results <- data.frame("coef" = round(beta,5), "exp(coef)"=round(exp(beta),5), "SE" = round(SErrors,5))
+  results <- mutate(results, lower_ci = round(exp(coef - 1.96 * SE),5))
+  results <- mutate(results, upper_ci = round(exp(coef + 1.96 * SE),5))
+  results <- mutate(results, "Z"=round(zvalues, 2), "P"=pvalues)
+  row.names(results) <- rownames(beta)
+
+  return(results)
 }
 
 #' Run the computation locally on a SEER dataset

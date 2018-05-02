@@ -1,8 +1,8 @@
 packages <- c(
   "abind",
-  "rjson",
-  "jsonlite",
-  "httr"
+  "dplyr",
+  "httr",
+  "rjson"
 )
 
 install.packages(packages)
