@@ -50,10 +50,15 @@ pre_process_data <- function(df, expl_vars, censor_col, time_col) {
   Z <- df[, expl_vars]
   time <- df[, time_col]
   censor <- df[, censor_col]
+  
+  if(dim(as.matrix(Z))[2]==1){
+    writeln("Univariate once again")
+    Z=as.matrix(Z)
+  }
 
   # Return the list (dict)
   return(list(
-    Z=Z,
+    Z=as.matrix(Z),
     time=time,
     censor=censor
   ))
@@ -98,7 +103,13 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
   # Since an item can only be in a single set of events, we're essentially
   # summing over all cases with events.
   data <- pre_process_data(df, expl_vars, censor_col, time_col)
-  cases_with_events <- data$Z[data$censor == 1, ]
+  #set condition to enable univariate Cox
+  if(dim(data$Z)[2]>1){
+    cases_with_events <- data$Z[data$censor == 1, ]
+  }
+  else{
+    cases_with_events <- as.matrix(data$Z[data$censor == 1])
+  }
   return(colSums(cases_with_events))
 
   # ---- (Alternative implementation) ----
@@ -481,6 +492,18 @@ mock.UMASS <- function() {
   time_col <- "TIME"
   censor_col <- "CENSOR"
 
+  return(mock(df, expl_vars, time_col, censor_col))
+}
+
+mock.UNI <- function() {
+  # Load the entire dataset and split it into parts
+  df <- read.csv("UMASS-uni.csv", sep=";")
+  
+  # Variables frequently used as input for the RPC calls
+  expl_vars <- c("AAE")
+  time_col <- "TIME"
+  censor_col <- "CENSOR"
+  
   return(mock(df, expl_vars, time_col, censor_col))
 }
 
