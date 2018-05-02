@@ -80,7 +80,13 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
   # Since an item can only be in a single set of events, we're essentially
   # summing over all cases with events.
   data <- pre_process_data(df, expl_vars, censor_col, time_col)
-  cases_with_events <- data$Z[data$censor == 1, ]
+  #set condition to enable univariate Cox
+  if(dim(data$Z)[2]>1){
+    cases_with_events <- data$Z[data$censor == 1, ]
+  }
+  else{
+    cases_with_events <- as.matrix(data$Z[data$censor == 1])
+  }
   return(colSums(cases_with_events))
 
   # ---- (Alternative implementation) ----
