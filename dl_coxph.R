@@ -50,10 +50,10 @@ pre_process_data <- function(df, expl_vars, censor_col, time_col) {
   Z <- df[, expl_vars]
   time <- df[, time_col]
   censor <- df[, censor_col]
-  
-  if(dim(as.matrix(Z))[2]==1){
+
+  if (dim(as.matrix(Z))[2] == 1) {
     writeln("Univariate once again")
-    Z=as.matrix(Z)
+    Z = as.matrix(Z)
   }
 
   # Return the list (dict)
@@ -450,7 +450,7 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
   # Standard errors are the squared root of the diagonal
   for(k in 1:dim(fisher)[1]){
     se_k <- sqrt(fisher[k,k])
-    SErrors <- c(SErrors,se_k)
+    SErrors <- c(SErrors, se_k)
   }
 
   # Calculating P and Z values
@@ -459,9 +459,9 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
   pvalues <- format.pval(pvalues, digits = 1)
 
   # 95%CI = beta +- 1.96 * SE
-  results <- data.frame("coef" = round(beta,5), "exp(coef)"=round(exp(beta),5), "SE" = round(SErrors,5))
-  results <- mutate(results, lower_ci = round(exp(coef - 1.96 * SE),5))
-  results <- mutate(results, upper_ci = round(exp(coef + 1.96 * SE),5))
+  results <- data.frame("coef"=round(beta,5), "exp(coef)"=round(exp(beta), 5), "SE"=round(SErrors,5))
+  results <- mutate(results, lower_ci=round(exp(coef - 1.96 * SE), 5))
+  results <- mutate(results, upper_ci=round(exp(coef + 1.96 * SE), 5))
   results <- mutate(results, "Z"=round(zvalues, 2), "P"=pvalues)
   row.names(results) <- rownames(beta)
 
@@ -498,12 +498,12 @@ mock.UMASS <- function() {
 mock.UNI <- function() {
   # Load the entire dataset and split it into parts
   df <- read.csv("UMASS-uni.csv", sep=";")
-  
+
   # Variables frequently used as input for the RPC calls
   expl_vars <- c("AAE")
   time_col <- "TIME"
   censor_col <- "CENSOR"
-  
+
   return(mock(df, expl_vars, time_col, censor_col))
 }
 

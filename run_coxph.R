@@ -111,7 +111,9 @@ main <- function() {
   client$authenticate()
 
   # Parameters used to interpret the hub's datastore
-  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9","Hist8520","hist8522","hist8480","hist8501","hist8201","hist8211","grade","ts","nne","npn","er2","er4")
+  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9",
+                 "Hist8520","hist8522","hist8480","hist8501","hist8201",
+                 "hist8211","grade","ts","nne","npn","er2","er4")
   time_col <- "Time"
   censor_col <- "Censor"
 
@@ -133,7 +135,8 @@ main <- function() {
   # Need to jump through a few hoops because apply simplifies a matrix with one row
   # to a numeric (vector) :@
   z_hat <- list.to.matrix(summed_zs)
-  z_hat <- matrix(apply(z_hat, 2, as.numeric), ncol=m, dimnames=list(NULL, expl_vars))
+  z_hat <- apply(z_hat, 2, as.numeric)
+  z_hat <- matrix(z_hat, ncol=m, dimnames=list(NULL, expl_vars))
   z_hat <- colSums(z_hat)
 
 
