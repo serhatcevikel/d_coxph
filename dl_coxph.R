@@ -52,13 +52,12 @@ pre_process_data <- function(df, expl_vars, censor_col, time_col) {
   censor <- df[, censor_col]
 
   if (dim(as.matrix(Z))[2] == 1) {
-    writeln("Univariate once again")
     Z = as.matrix(Z)
   }
 
   # Return the list (dict)
   return(list(
-    Z=as.matrix(Z),
+    Z=Z,
     time=time,
     censor=censor
   ))
