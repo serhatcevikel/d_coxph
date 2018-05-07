@@ -36,7 +36,7 @@ source("dl_coxph.R")
 #'   task (list) including results
 wait_for_results <- function(client, task) {
 
-  path = sprintf('/api/task/%s', task$id)
+  path = sprintf('/task/%s', task$id)
 
   while(TRUE) {
     r <- client$GET(path)
@@ -51,7 +51,7 @@ wait_for_results <- function(client, task) {
     }
   }
 
-  path = sprintf('/api/task/%s?include=results', task$id)
+  path = sprintf('/task/%s?include=results', task$id)
   r <- client$GET(path)
 
   return(content(r))
@@ -82,7 +82,7 @@ call <- function(client, method, ...) {
   )
 
   # Create the task on the server; this returs the task with its id
-  r <- client$POST('/api/task', task)
+  r <- client$POST('/task', task)
 
   # Wait for the results to come in
   result_dict <- wait_for_results(client, content(r))
@@ -105,9 +105,9 @@ call <- function(client, method, ...) {
 
 
 #' Apply CoxPH to a dataset
-main <- function() {
+main <- function(host, username, password, collaboration_id) {
   # Create a client object to communicate with the server.
-  client <- Client('http://localhost:5000', 'admin@southpark.example', 3, 'password')
+  client <- Client(host, username, password, collaboration_id)
   client$authenticate()
 
   # Parameters used to interpret the hub's datastore
