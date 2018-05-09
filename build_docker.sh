@@ -8,6 +8,8 @@ PORT=443
 
 IMAGE=dl_coxph
 
+docker build -t custom-r-base -f Dockerfile.custom-r-base .
+
 if [ $PORT -eq 443 ]
 then
     docker build -t $IMAGE -t $HOST/$IMAGE .
