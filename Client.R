@@ -27,10 +27,19 @@ create_task_input = function(method, ...) {
     kwargs <- arguments[names(arguments) != ""]
   }
 
+  fp <- textConnection("arg_data", open="w")
+  saveRDS(args, fp, ascii=T)
+  close(fp)
+
+  fp <- textConnection("kwarg_data", open="w")
+  saveRDS(kwargs, fp, ascii=T)
+  close(fp)
+
+
   input_data <- list(
     method=method,
-    args=args,
-    kwargs=kwargs
+    args=arg_data,
+    kwargs=kwarg_data
   )
 
   return(input_data)
@@ -50,7 +59,7 @@ create_task_input = function(method, ...) {
 #'
 #' Return:
 #'   Client
-Client <- function(host, username, collaboration_id, password='') {
+Client <- function(host, username, password, collaboration_id, api_path='') {
   # Function arguments are automatically available in the
   # environment, so no need to assign them explicitly.
   env <- environment()
@@ -74,7 +83,7 @@ Client <- function(host, username, collaboration_id, password='') {
     #' Authenticate with the server; sets the access and refresh tokens.
     authenticate = function() {
       # Create the URL and data for the JSON body
-      url <- paste(env$host, '/api/token', sep='')
+      url <- paste(env$host, env$api_path, '/token', sep='')
 
       data <- list(
         username=env$username,
@@ -120,7 +129,7 @@ Client <- function(host, username, collaboration_id, password='') {
 
     #' Perform a request to the server
     request = function(method, path, data=NULL, first_try=T) {
-      url <- paste(env$host, path, sep='')
+      url <- paste(env$host, env$api_path, path, sep='')
       token <- sprintf('Bearer %s', env$access_token)
 
       if (method == 'GET') {
@@ -180,3 +189,19 @@ Client <- function(host, username, collaboration_id, password='') {
   # Return the new object
   return(self)
 }
+
+
+# ******************************************************************************
+# ---- class MockClient ----
+# ******************************************************************************
+
+#' Fake client
+MockClient <- function(datasets) {
+  env <- environment()
+  self <- list(
+    datasets = datasets
+  )
+  return(self)
+}
+
+
