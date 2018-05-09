@@ -3,7 +3,7 @@
 # HOST=localhost
 # PORT=5000
 
-HOST=docker-registry.distributedlearning.online
+HOST=docker-registry.distributedlearning.ai
 PORT=443
 
 IMAGE=dl_coxph

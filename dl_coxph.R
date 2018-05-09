@@ -99,38 +99,18 @@ RPC_get_unique_event_times_and_counts <- function(df, time_col, censor_col) {
 #'   numeric vector with sums and named index with covariates.
 RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
 
-  # Since an item can only be in a single set of events, we're essentially
-  # summing over all cases with events.
   data <- pre_process_data(df, expl_vars, censor_col, time_col)
+
   #set condition to enable univariate Cox
-  if(dim(data$Z)[2]>1){
+  if (dim(data$Z)[2] > 1) {
     cases_with_events <- data$Z[data$censor == 1, ]
-  }
-  else{
+  } else {
     cases_with_events <- as.matrix(data$Z[data$censor == 1])
   }
-  return(colSums(cases_with_events))
 
-  # ---- (Alternative implementation) ----
-  # The following implementation stays closer to the original formula
-  # but is fairly inefficient.
-  #
-  # D_k <- as.numeric(names(get_unique_event_times_and_counts(df, time_col)))
-  # summed <- rep(0, ncol(data$Z))
-  #
-  # for (i in 1:length(D_k)) {
-  #   idx <- (data$time == D_k[i]) & (data$censor == 1)
-  #
-  #   cases_with_events <- data$Z[idx, ]
-  #
-  #   if (nrow(cases_with_events) > 1) {
-  #     summed <- summed + colSums(cases_with_events)
-  #   } else if (nrow(cases_with_events) == 1) {
-  #     summed <- summed + cases_with_events
-  #   }
-  # }
-  #
-  # return(summed)
+  # Since an item can only be in a single set of events, we're essentially
+  # summing over all cases with events.
+  return(colSums(cases_with_events))
 }
 
 #' Compute the three aggretated statistics needed for an iteration
@@ -152,7 +132,6 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
     m <- length(expl_vars)
 
     # initialize matrices for the aggregates we're about to compute
-
     agg1 <- array(dim=c(D))
     agg2 <- array(dim=c(D, m))
     dimnames(agg2) <- list(NULL, expl_vars)
@@ -181,20 +160,15 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
       agg2[i, ] <- colSums(z_ebz)
 
       # aggregate 3: SUM_risk[z_r * z_q * exp(beta * z)]
+      summed <- matrix(0, nrow=m, ncol=m)
       for (j in 1:nrow(R_i)) {
         # z_ebz[j, ]: numeric vector
         # the outer product creates a matrix:
-        # | z1*z1 | z1*z2 | ... | z1*zn |
-        # | z2*z1 | z2*z2 | ... | z2*zn |
+        # | z1*z1 | z1*z2 | ... | z1*zm |
+        # | z2*z1 | z2*z2 | ... | z2*zm |
         # | ...   | ...   | ... | ...   |
-        # | zn*z1 | zn*z2 | ... | zn*zn |
-        s1 <- z_ebz[j, ] %*% t(R_i[j, ])
-
-        if (j == 1) {
-          summed <- s1
-        } else {
-          summed <- summed + s1
-        }
+        # | zm*z1 | zm*z2 | ... | zm*zm |
+        summed <- summed + z_ebz[j, ] %*% t(R_i[j, ])
       }
 
       agg3[i, , ] <- summed
@@ -340,10 +314,88 @@ run_RPC <- function(df, input_data) {
 }
 
 
+#' Wait for the results of a distributed task and return the task,
+#' including results.
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   task: list with the key id (representing the task id)
+#'
+#' Return:
+#'   task (list) including results
+wait_for_results <- function(client, task) {
+
+  path = sprintf('/task/%s', task$id)
+
+  while(TRUE) {
+    r <- client$GET(path)
+
+    if (content(r)$complete) {
+      break
+
+    } else {
+      # Wait 30 seconds
+      writeln("Sleeping ...")
+      Sys.sleep(5)
+    }
+  }
+
+  path = sprintf('/task/%s?include=results', task$id)
+  r <- client$GET(path)
+
+  return(content(r))
+}
+
+
+#' Execute a method on the distributed learning infrastructure.
+#'
+#' This entails creating a task and letting the hubs execute the method
+#' specified in the 'input' parameter.
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   method: name of the method to call on the distributed learning
+#'           infrastructure
+#'   ...: (keyword) arguments to provide to method; need to be JSON
+#'        serializable.
+call <- function(client, method, ...) {
+  # Create the json structure for the call to the server
+  input <- create_task_input(method, ...)
+
+  task = list(
+    "name"="CoxPH",
+    "image"="docker-registry.distributedlearning.ai/dl_coxph",
+    "collaboration_id"=client$get("collaboration_id"),
+    "input"=input,
+    "description"=""
+  )
+
+  # Create the task on the server; this returs the task with its id
+  r <- client$POST('/task', task)
+
+  # Wait for the results to come in
+  result_dict <- wait_for_results(client, content(r))
+
+  # result_dict is a list with the keys _id, id, description, complete, image,
+  # collaboration, results, etc. the entry "results" is itself a list with
+  # one entry for each site. It needs a bit of work to convert the JSON response
+  # within a JSON response back to R data types.
+  sites <- result_dict$results
+  results <- list()
+
+  for (k in 1:length(sites)) {
+    results[[k]] <- fromJSON(sites[[k]]$result)
+  }
+
+  return(results)
+}
+
+
 #' Mock an RPC call to all sites.
-mock.call <- function(datasets, method, ...) {
+mock.call <- function(client, method, ...) {
 
   writeln(sprintf('** Mocking call to "%s" **', method))
+  datasets <- client$datasets
 
   # Construct the input_data list from the ellipsis.
   # This list is normally provided as JSON by the server.
@@ -376,37 +428,42 @@ mock.call <- function(datasets, method, ...) {
   return(result)
 }
 
-#' Run the computation locally
-mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
 
-  datasets <- list()
-
-  for (k in 1:splits) {
-    datasets[[k]] <- df[seq(k, nrow(df), by=splits), ]
-  }
-
+#' Run the algorithm.
+#' 
+#' Depending on the value of call.method the algorithm runs locally or on the
+#' distributed learning infrastructure.
+run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
   m <- length(expl_vars)
 
-  # Mocking the actual procedure starts here
-  # First create the vector of distinct event times & tie-counts
-  Ds <- mock.call(datasets, "get_unique_event_times_and_counts", time_col, censor_col)
+  # Ask all hubs to return their unique event times with counts
+  writeln("Getting unique event times and counts")
+  results <- call.method(client, "get_unique_event_times_and_counts", time_col, censor_col)
+  Ds <- lapply(results, as.data.frame)
+
   D_all <- compute_combined_ties(Ds)
   unique_event_times <- as.numeric(names(D_all))
 
-  # Compute the summed zs
-  summed_zs <- mock.call(datasets, "compute_summed_z", expl_vars, time_col, censor_col)
+  # Ask all hubs to compute the summed Z statistic
+  writeln("Getting the summed Z statistic")
+  summed_zs <- call.method(client, "compute_summed_z", expl_vars, time_col, censor_col)
 
   # z_hat: vector of same length m
+  # Need to jump through a few hoops because apply simplifies a matrix with one row
+  # to a numeric (vector) :@
   z_hat <- list.to.matrix(summed_zs)
-  z_hat <- matrix(apply(z_hat, 2, as.numeric), ncol=m, dimnames=list(NULL, expl_vars))
+  z_hat <- apply(z_hat, 2, as.numeric)
+  z_hat <- matrix(z_hat, ncol=m, dimnames=list(NULL, expl_vars))
   z_hat <- colSums(z_hat)
 
+
   # Initialize the betas to 0 and start iterating
+  writeln("Starting iterations ...")
   beta <- beta_old <- rep(0, m)
   delta <- 0
 
   i = 1
-  while (i <= 20) {
+  while (i <= 30) {
     writeln(sprintf("-- Iteration %i --", i))
     writeln("Beta's:")
     print(beta)
@@ -416,7 +473,7 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
     print(delta)
     writeln()
 
-    aggregates <- mock.call(datasets, "perform_iteration", expl_vars, time_col, censor_col, beta, unique_event_times)
+    aggregates <- call.method(client, "perform_iteration", expl_vars, time_col, censor_col, beta, unique_event_times)
 
     for (k in 1:length(aggregates)) {
       aggregates[[k]]$agg1 <- readRDS(textConnection(aggregates[[k]]$agg1))
@@ -467,52 +524,29 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
   return(results)
 }
 
-#' Run the computation locally on a SEER dataset
-mock.SEER <- function() {
-  # Load the entire dataset and split it into parts
-  df <- read.csv("SeerMetHeader.csv", sep=";")
 
-  # Variables frequently used as input for the RPC calls
-  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9","Hist8520","hist8522","hist8480","hist8501","hist8201","hist8211","grade","ts","nne","npn","er2","er4")
-  time_col <- "Time"
-  censor_col <- "Censor"
+#' Run the algorithm locally
+mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
 
-  return(mock(df, expl_vars, time_col, censor_col))
+  datasets <- list()
+
+  for (k in 1:splits) {
+    datasets[[k]] <- df[seq(k, nrow(df), by=splits), ]
+  }
+
+  client <- MockClient(datasets)
+  results <- run(client, expl_vars, time_col, censor_col, call.method=mock.call)
+  return(results)
 }
 
-#' Run the computation locally on the UIS Drug treatment study dataset from
-#' https://vincentarelbundock.github.io/Rdatasets/doc/quantreg/uis.html
-mock.UMASS <- function() {
-  # Load the entire dataset and split it into parts
-  df <- read.csv("UMASS-p.csv", sep=";")
-
-  # Variables frequently used as input for the RPC calls
-  expl_vars <- c("AAE", "BDS", "HU", "CU", "IVDUPN", "IVDURN", "NPDT", "RACE", "TREAT", "SITE")
-  time_col <- "TIME"
-  censor_col <- "CENSOR"
-
-  return(mock(df, expl_vars, time_col, censor_col))
-}
-
-mock.UNI <- function() {
-  # Load the entire dataset and split it into parts
-  df <- read.csv("UMASS-uni.csv", sep=";")
-
-  # Variables frequently used as input for the RPC calls
-  expl_vars <- c("AAE")
-  time_col <- "TIME"
-  censor_col <- "CENSOR"
-
-  return(mock(df, expl_vars, time_col, censor_col))
-}
 
 #' Entrypoint when excecuting this script using Rscript
 #'
 #' Wraps the docker input/output for run_RPC().
-main <- function() {
+docker.main <- function() {
   database_uri <- Sys.getenv("DATABASE_URI")
   writeln(sprintf("Using '%s' as database", database_uri))
-  df <- read.csv(database_uri, sep=";")
+  df <- read.csv(database_uri)
 
   writeln("Loading input.txt")
   input_data <- fromJSON(readLines('input.txt'))
@@ -528,7 +562,8 @@ main <- function() {
   writeln("[DONE!]")
 }
 
+
 if (!interactive()) {
-    main()
+    docker.main()
 }
 

@@ -25,87 +25,79 @@
 source("Client.R")
 source("dl_coxph.R")
 
-#' Wait for the results of a distributed task and return the task,
-#' including results.
-#'
-#' Params:
-#'   client: ptmclient::Client instance.
-#'   task: list with the key id (representing the task id)
-#'
-#' Return:
-#'   task (list) including results
-wait_for_results <- function(client, task) {
 
-  path = sprintf('/task/%s', task$id)
+#' Run the computation locally on a SEER dataset
+#' FIXME: add attribution
+mock.SEER <- function(splits=5) {
+  # Load the entire dataset and split it into parts
+  df <- read.csv("SeerMetHeader.csv")
 
-  while(TRUE) {
-    r <- client$GET(path)
+  # Variables frequently used as input for the RPC calls
+  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9","Hist8520","hist8522","hist8480","hist8501","hist8201","hist8211","grade","ts","nne","npn","er2","er4")
+  time_col <- "Time"
+  censor_col <- "Censor"
 
-    if (content(r)$complete) {
-      break
-
-    } else {
-      # Wait 30 seconds
-      writeln("Sleeping ...")
-      Sys.sleep(5)
-    }
-  }
-
-  path = sprintf('/task/%s?include=results', task$id)
-  r <- client$GET(path)
-
-  return(content(r))
+  return(mock(df, expl_vars, time_col, censor_col, splits=splits))
 }
 
 
-#' Execute a method on the distributed learning infrastructure.
-#'
-#' This entails creating a task and letting the hubs execute the method
-#' specified in the 'input' parameter.
-#'
-#' Params:
-#'   client: ptmclient::Client instance.
-#'   method: name of the method to call on the distributed learning
-#'           infrastructure
-#'   ...: (keyword) arguments to provide to method; need to be JSON
-#'        serializable.
-call <- function(client, method, ...) {
-  # Create the json structure for the call to the server
-  input <- create_task_input(method, ...)
-
-  task = list(
-    "name"="CoxPH",
-    "image"="localhost:5001/dl_coxph",
-    "collaboration_id"=client$get("collaboration_id"),
-    "input"=input,
-    "description"=""
-  )
-
-  # Create the task on the server; this returs the task with its id
-  r <- client$POST('/task', task)
-
-  # Wait for the results to come in
-  result_dict <- wait_for_results(client, content(r))
-
-  # result_dict is a list with the keys _id, id, description, complete, image,
-  # collaboration, results, etc. the entry "results" is itself a list with
-  # one entry for each site. It needs a bit of work to convert the JSON response
-  # within a JSON response back to R data types.
-  sites <- result_dict$results
+#' Test using different numbers of splits.
+#' Results (betas) should be equal.
+mock.SEER.multiple <- function(max_splits) {
   results <- list()
 
-  for (k in 1:length(sites)) {
-    results[[k]] <- fromJSON(sites[[k]]$result)
+  for (s in 1:max_splits) {
+    results[[s]] <- mock.SEER(s)
   }
 
   return(results)
 }
 
+#' Test using the split dataset created with 'datasetSplit.R'
+#' Results (betas) should be equal.
+mock.SEER.custom.split <- function() {
+  datasets <- list()
+  datasets[[1]] <- read.csv("Dataset1.csv")
+  datasets[[2]] <- read.csv("Dataset2.csv")
+
+  client <- MockClient(datasets)
+  results <- run(client, expl_vars, time_col, censor_col, call.method=mock.call)
+
+  return(results)
+}
+
+#' Run the computation locally on the UIS Drug treatment study dataset from
+#' https://vincentarelbundock.github.io/Rdatasets/doc/quantreg/uis.html
+mock.UMASS <- function(splits=5) {
+  # Load the entire dataset and split it into parts
+  df <- read.csv("UMASS-p.csv", sep=";")
+
+  # Variables frequently used as input for the RPC calls
+  expl_vars <- c("AAE", "BDS", "HU", "CU", "IVDUPN", "IVDURN", "NPDT", "RACE", "TREAT", "SITE")
+  time_col <- "TIME"
+  censor_col <- "CENSOR"
+
+  return(mock(df, expl_vars, time_col, censor_col, splits=splits))
+}
+
+#' Run the computation locally on the UIS Drug treatment study dataset from
+#' https://vincentarelbundock.github.io/Rdatasets/doc/quantreg/uis.html
+#' but use only a single covariate.
+mock.UMASS.univariate <- function(splits=5) {
+  # Load the entire dataset and split it into parts
+  df <- read.csv("UMASS-uni.csv", sep=";")
+
+  # Variables frequently used as input for the RPC calls
+  expl_vars <- c("AAE")
+  time_col <- "TIME"
+  censor_col <- "CENSOR"
+
+  return(mock(df, expl_vars, time_col, censor_col, splits=splits))
+}
 
 
-
-#' Apply CoxPH to a dataset
-main <- function(host, username, password, collaboration_id) {
+#' Apply CoxPH to the SEER dataset
+run.SEER <- function(host, username, password, collaboration_id) {
   # Create a client object to communicate with the server.
   client <- Client(host, username, password, collaboration_id)
   client$authenticate()
@@ -117,74 +109,12 @@ main <- function(host, username, password, collaboration_id) {
   time_col <- "Time"
   censor_col <- "Censor"
 
-  m <- length(expl_vars)
-
-  # Ask all hubs to return their unique event times with counts
-  writeln("Getting unique event times and counts")
-  results <- call(client, "get_unique_event_times_and_counts", time_col, censor_col)
-  Ds <- lapply(results, as.data.frame)
-
-  D_all <- compute_combined_ties(Ds)
-  unique_event_times <- as.numeric(names(D_all))
-
-  # Ask all hubs to compute the summed Z statistic
-  writeln("Getting the summed Z statistic")
-  summed_zs <- call(client, "compute_summed_z", expl_vars, time_col, censor_col)
-
-  # z_hat: vector of same length m
-  # Need to jump through a few hoops because apply simplifies a matrix with one row
-  # to a numeric (vector) :@
-  z_hat <- list.to.matrix(summed_zs)
-  z_hat <- apply(z_hat, 2, as.numeric)
-  z_hat <- matrix(z_hat, ncol=m, dimnames=list(NULL, expl_vars))
-  z_hat <- colSums(z_hat)
-
-
-  # Initialize the betas to 0 and start iterating
-  writeln("Starting iterations ...")
-  beta <- beta_old <- rep(0, m)
-  delta <- 0
-
-  i = 1
-  while (i <= 30) {
-    writeln(sprintf("-- Iteration %i --", i))
-    writeln("Beta's:")
-    print(beta)
-    writeln()
-
-    writeln("delta: ")
-    print(delta)
-    writeln()
-
-    aggregates <- call(client, "perform_iteration", expl_vars, time_col, censor_col, beta, unique_event_times)
-
-    for (k in 1:length(aggregates)) {
-      aggregates[[k]]$agg1 <- readRDS(textConnection(aggregates[[k]]$agg1))
-      aggregates[[k]]$agg2 <- readRDS(textConnection(aggregates[[k]]$agg2))
-      aggregates[[k]]$agg3 <- readRDS(textConnection(aggregates[[k]]$agg3))
-    }
-
-    # Compute the primary and secondary derivatives
-    derivatives <- compute_derivatives(z_hat, D_all, aggregates)
-    # print(derivatives)
-
-    # Update the betas
-    beta_old <- beta
-    beta <- beta_old - (solve(derivatives$secondary) %*% derivatives$primary)
-
-    delta <- abs(sum(beta - beta_old))
-    if (delta <= 10^-8) {
-      writeln("Betas have settled! Finished iterating!")
-      break
-    }
-
-    # Again!!?
-    i <- i + 1
-  }
-
-  return(beta)
+  results <- run(client, expl_vars, time_col, censor_col)
+  return(results)
 }
 
-if (!interactive()) {
-  main()
-}
+
+
+
+
+

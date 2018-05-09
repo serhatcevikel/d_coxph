@@ -180,3 +180,19 @@ Client <- function(host, username, password, collaboration_id, api_path='') {
   # Return the new object
   return(self)
 }
+
+
+# ******************************************************************************
+# ---- class MockClient ----
+# ******************************************************************************
+
+#' Fake client
+MockClient <- function(datasets) {
+  env <- environment()
+  self <- list(
+    datasets = datasets
+  )
+  return(self)
+}
+
+
