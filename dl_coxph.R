@@ -79,7 +79,12 @@ RPC_get_unique_event_times_and_counts <- function(df, time_col, censor_col) {
   time <- sort(time)
 
   df_time <- as.data.frame(table(time), stringsAsFactors=F)
-  return(df_time)
+
+  fp <- textConnection("df_time_data", open="w")
+  saveRDS(df_time, fp, ascii=T)
+  close(fp)
+
+  return(df_time_data)
 }
 
 #' Compute the aggregate statistic of step 2
@@ -108,7 +113,14 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
 
   # Since an item can only be in a single set of events, we're essentially
   # summing over all cases with events.
-  return(colSums(cases_with_events))
+  summed_zs <- colSums(cases_with_events)
+
+  # Serialize the result
+  fp <- textConnection("summed_zs_data", open="w")
+  saveRDS(summed_zs, fp, ascii=T)
+  close(fp)
+
+  return(summed_zs_data)
 }
 
 #' Compute the three aggretated statistics needed for an iteration
@@ -303,6 +315,10 @@ run_RPC <- function(df, input_data) {
   # Determine which method was requested and combine arguments and keyword
   # arguments in a single variable
   method <- sprintf("RPC_%s", input_data$method)
+
+  input_data$args <- readRDS(textConnection(input_data$args))
+  input_data$kwargs <- readRDS(textConnection(input_data$kwargs))
+
   args <- c(list(df), input_data$args, input_data$kwargs)
 
   # Call the method
@@ -394,25 +410,7 @@ mock.call <- function(client, method, ...) {
 
   writeln(sprintf('** Mocking call to "%s" **', method))
   datasets <- client$datasets
-
-  # Construct the input_data list from the ellipsis.
-  # This list is normally provided as JSON by the server.
-  arguments <- list(...)
-
-  if (is.null(names(arguments))) {
-    args <- arguments
-    kwargs <- list()
-
-  } else {
-    args <- arguments[names(arguments) == ""]
-    kwargs <- arguments[names(arguments) != ""]
-  }
-
-  input_data <- list(
-    method=method,
-    args=args,
-    kwargs=kwargs
-  )
+  input_data <- create_task_input(method, ...)
 
   # Create a list to store the responses from the individual sites
   result <- list()
@@ -437,6 +435,11 @@ run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
   # Ask all hubs to return their unique event times with counts
   writeln("Getting unique event times and counts")
   results <- call.method(client, "get_unique_event_times_and_counts", time_col, censor_col)
+
+  for (k in 1:length(results)) {
+    results[[k]] <- readRDS(textConnection(results[[k]]))
+  }
+
   Ds <- lapply(results, as.data.frame)
 
   D_all <- compute_combined_ties(Ds)
@@ -445,6 +448,10 @@ run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
   # Ask all hubs to compute the summed Z statistic
   writeln("Getting the summed Z statistic")
   summed_zs <- call.method(client, "compute_summed_z", expl_vars, time_col, censor_col)
+
+  for (k in 1:length(summed_zs)) {
+    summed_zs[[k]] <- readRDS(textConnection(summed_zs[[k]]))
+  }
 
   # z_hat: vector of same length m
   # Need to jump through a few hoops because apply simplifies a matrix with one row

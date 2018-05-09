@@ -33,7 +33,9 @@ mock.SEER <- function(splits=5) {
   df <- read.csv("SeerMetHeader.csv")
 
   # Variables frequently used as input for the RPC calls
-  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9","Hist8520","hist8522","hist8480","hist8501","hist8201","hist8211","grade","ts","nne","npn","er2","er4")
+  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9",
+                 "Hist8520","hist8522","hist8480","hist8501","hist8201",
+                 "hist8211","grade","ts","nne","npn","er2","er4")
   time_col <- "Time"
   censor_col <- "Censor"
 
@@ -106,7 +108,7 @@ mock.UMASS.univariate <- function(splits=5) {
 # ******************************************************************************
 
 #' Apply CoxPH to the SEER dataset
-run.SEER <- function(host, username, password, collaboration_id) {
+run.SEER <- function(username, password, collaboration_id, host='https://api.distributedlearning.ai') {
   # Create a client object to communicate with the server.
   client <- Client(host, username, password, collaboration_id)
   client$authenticate()

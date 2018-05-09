@@ -27,10 +27,19 @@ create_task_input = function(method, ...) {
     kwargs <- arguments[names(arguments) != ""]
   }
 
+  fp <- textConnection("arg_data", open="w")
+  saveRDS(args, fp, ascii=T)
+  close(fp)
+
+  fp <- textConnection("kwarg_data", open="w")
+  saveRDS(kwargs, fp, ascii=T)
+  close(fp)
+
+
   input_data <- list(
     method=method,
-    args=args,
-    kwargs=kwargs
+    args=arg_data,
+    kwargs=kwarg_data
   )
 
   return(input_data)
