@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
 
-
 #' ----------------------------------------------------------------------------
 #' title: dl_coxph.R
 #' description:
@@ -8,8 +7,7 @@
 #'   on an article from [Lu et al](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5009917/).
 #'
 #'   This implementation can be used with the PyTaskManager distributed learning
-#'   infrastructure (see https://github.com/mellesies/pytaskmanager/tree/DEV)
-#'   and works with commit [befd87d].
+#'   infrastructure (see https://github.com/mellesies/pytaskmanager).
 #' author:
 #'   Melle Sieswerda <m.sieswerda@iknl.nl>
 #'   Anna van der Zalm <a.vanderzalm@iknl.nl>
@@ -430,7 +428,7 @@ mock.call <- function(client, method, ...) {
 
 
 #' Run the algorithm.
-#' 
+#'
 #' Depending on the value of call.method the algorithm runs locally or on the
 #' distributed learning infrastructure.
 run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
