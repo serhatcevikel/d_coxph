@@ -3,7 +3,8 @@
 #' ----------------------------------------------------------------------------
 #' title: run_tests.R
 #' description:
-#'   Script to test the distributed Cox Proportional Hazards algorithm.
+#'   Script to run all unittests for the distributed Cox Proportional Hazards
+#'   algorithm.
 #' author:
 #'   Melle Sieswerda <m.sieswerda@iknl.nl>
 #'   Anna van der Zalm <a.vanderzalm@iknl.nl>

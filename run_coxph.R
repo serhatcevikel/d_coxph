@@ -18,12 +18,13 @@
 #' ----------------------------------------------------------------------------
 
 
-# ******************************************************************************
-# ---- Run the distributed CoxPH algorithm ----
-# ******************************************************************************
 source("Client.R")
 source("dl_coxph.R")
 
+
+# ******************************************************************************
+# ---- Run the distributed CoxPH algorithm locally ----
+# ******************************************************************************
 
 #' Run the computation locally on a SEER dataset
 #' FIXME: add attribution
@@ -38,7 +39,6 @@ mock.SEER <- function(splits=5) {
 
   return(mock(df, expl_vars, time_col, censor_col, splits=splits))
 }
-
 
 #' Test using different numbers of splits.
 #' Results (betas) should be equal.
@@ -60,6 +60,11 @@ mock.SEER.custom.split <- function() {
   datasets[[2]] <- read.csv("Dataset2.csv")
 
   client <- MockClient(datasets)
+
+  expl_vars <- c("Age","Race2","Race3","Mar2","Mar3","Mar4","Mar5","Mar9","Hist8520","hist8522","hist8480","hist8501","hist8201","hist8211","grade","ts","nne","npn","er2","er4")
+  time_col <- "Time"
+  censor_col <- "Censor"
+
   results <- run(client, expl_vars, time_col, censor_col, call.method=mock.call)
 
   return(results)
@@ -94,6 +99,11 @@ mock.UMASS.univariate <- function(splits=5) {
   return(mock(df, expl_vars, time_col, censor_col, splits=splits))
 }
 
+
+
+# ******************************************************************************
+# ---- Run the CoxPH algorithm on the distributed infrastructure ----
+# ******************************************************************************
 
 #' Apply CoxPH to the SEER dataset
 run.SEER <- function(host, username, password, collaboration_id) {
