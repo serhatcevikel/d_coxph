@@ -64,7 +64,7 @@ test_that("test 5 sites", {
   cox_coefficients <- round(cox_result$coefficients, digits)
 
   # Run the distributed implementation with 5 datasets
-  dlcox_result <- dlcox_result <- mock.SEER(splits=5)
+  dlcox_result <- mock.SEER(splits=5)
   dlcox_coefficients <- round(dlcox_result$coef, digits)
   names(dlcox_coefficients) <- rownames(dlcox_result)
 

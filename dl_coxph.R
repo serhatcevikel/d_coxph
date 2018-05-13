@@ -117,15 +117,16 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
 #' Compute the three aggretated statistics needed for an iteration
 #'
 #' Params:
-#' df: dataframe
-#' expl_vars: list of explanatory variables (covariates) to use
-#' time_col: name of the column that contains the event/censor times
-#' censor_col: name of the colunm that explains whether an event occured or
-#'             the patient was censored
-#' beta: vector of beta coefficients (length(beta) == length(expl_vars))
-#' times: vector of *globally* unique event times
+#'   df: dataframe
+#'   expl_vars: list of explanatory variables (covariates) to use
+#'   time_col: name of the column that contains the event/censor times
+#'   censor_col: name of the colunm that explains whether an event occured or
+#'               the patient was censored
+#'   beta: vector of beta coefficients (length(beta) == length(expl_vars))
+#'   times: vector of *globally* unique event times
 #'
-#' Return: list containing aggretated statistics
+#' Return: 
+#'   list containing aggretated statistics
 RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, unique_event_times) {
     data <- pre_process_data(df, expl_vars, censor_col, time_col)
 
@@ -350,15 +351,21 @@ wait_for_results <- function(client, task) {
 
 #' Execute a method on the distributed learning infrastructure.
 #'
-#' This entails creating a task and letting the hubs execute the method
-#' specified in the 'input' parameter.
+#' This entails ...
+#'  * creating a task and letting the hubs execute the method
+#'    specified in the 'input' parameter
+#'  * waiting for all results to arrive
+#'  * deserializing each sites' result using readRDS
 #'
 #' Params:
 #'   client: ptmclient::Client instance.
 #'   method: name of the method to call on the distributed learning
 #'           infrastructure
-#'   ...: (keyword) arguments to provide to method; need to be JSON
-#'        serializable.
+#'   ...: (keyword) arguments to provide to method. The arguments are serialized
+#'        using `saveRDS()` by `create_task_input()`.
+#'
+#' Return:
+#'   return value of called method
 call <- function(client, method, ...) {
   # Create the json structure for the call to the server
   input <- create_task_input(method, ...)
@@ -379,8 +386,8 @@ call <- function(client, method, ...) {
 
   # result_dict is a list with the keys _id, id, description, complete, image,
   # collaboration, results, etc. the entry "results" is itself a list with
-  # one entry for each site. It needs a bit of work to convert the JSON response
-  # within a JSON response back to R data types.
+  # one entry for each site. The site's actual result is contained in the
+  # named list member 'result' and is encoded using saveRDS.
   sites <- result_dict$results
   results <- list()
 
@@ -393,6 +400,16 @@ call <- function(client, method, ...) {
 
 
 #' Mock an RPC call to all sites.
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   method: name of the method to call on the distributed learning
+#'           infrastructure
+#'   ...: (keyword) arguments to provide to method. The arguments are serialized
+#'        using `saveRDS()` by `create_task_input()`.
+#'
+#' Return:
+#'   return value of called method
 mock.call <- function(client, method, ...) {
 
   writeln(sprintf('** Mocking call to "%s" **', method))
@@ -405,7 +422,7 @@ mock.call <- function(client, method, ...) {
 
   # Mock calling the RPC method on each site
   for (k in 1:length(datasets)) {
-    result <- dispatch_RPC(datasets[[k]], input_data)    
+    result <- dispatch_RPC(datasets[[k]], input_data)
     results[[k]] <- readRDS(textConnection(result))
   }
 
@@ -414,11 +431,21 @@ mock.call <- function(client, method, ...) {
 }
 
 
-#' Run the algorithm.
+#' Run the distributed CoxPH algorithm.
 #'
-#' Depending on the value of call.method the algorithm runs locally or on the
-#' distributed learning infrastructure.
-run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
+#' By specifying call.method=mock.call the algorithm runs locally.
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   expl_vars: list of explanatory variables (covariates) to use
+#'   time_col: name of the column that contains the event/censor times
+#'   censor_col: name of the colunm that explains whether an event occured or
+#'               the patient was censored
+#'
+#' Return:
+#'   data.frame with beta, p-value and confidence interval for each explanatory
+#'   variable.
+dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
   m <- length(expl_vars)
 
   # Ask all hubs to return their unique event times with counts
@@ -505,8 +532,23 @@ run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
 }
 
 
-#' Run the algorithm locally
-mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
+#' Run the distributed CoxPH algorithm locally
+#'
+#' Splits the provided data frame in `splits` equal parts and runs 
+#' `dcoxph()` with `call.method=mock.call`. 
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   expl_vars: list of explanatory variables (covariates) to use
+#'   time_col: name of the column that contains the event/censor times
+#'   censor_col: name of the colunm that explains whether an event occured or
+#'               the patient was censored
+#'   splits: number of parts to split the data set in
+#'
+#' Return:
+#'   data.frame with beta, p-value and confidence interval for each explanatory
+#'   variable.
+dcoxph.mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
 
   datasets <- list()
 
@@ -515,14 +557,16 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
   }
 
   client <- MockClient(datasets)
-  results <- run(client, expl_vars, time_col, censor_col, call.method=mock.call)
+  results <- dcoxph(client, expl_vars, time_col, censor_col, call.method=mock.call)
   return(results)
 }
 
 
 #' Entrypoint when excecuting this script using Rscript
 #'
-#' Wraps the docker input/output for dispatch_RPC().
+#' Wraps the docker input/output for `dispatch_RPC()`.
+#' Deserialization/serialization is performed in `dipatch_RPC()` to enable
+#' testing.
 docker.wrapper <- function() {
   database_uri <- Sys.getenv("DATABASE_URI")
   writeln(sprintf("Using '%s' as database", database_uri))
@@ -547,6 +591,9 @@ docker.wrapper <- function() {
 }
 
 
+# ******************************************************************************
+# ---- main() ----
+# ******************************************************************************
 if (!interactive()) {
     docker.wrapper()
 }
