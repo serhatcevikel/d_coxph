@@ -39,7 +39,7 @@ mock.SEER <- function(splits=5) {
   time_col <- "Time"
   censor_col <- "Censor"
 
-  return(mock(df, expl_vars, time_col, censor_col, splits=splits))
+  return(dcoxph.mock(df, expl_vars, time_col, censor_col, splits=splits))
 }
 
 #' Test using different numbers of splits.
@@ -67,7 +67,7 @@ mock.SEER.custom.split <- function() {
   time_col <- "Time"
   censor_col <- "Censor"
 
-  results <- run(client, expl_vars, time_col, censor_col, call.method=mock.call)
+  results <- dcoxph(client, expl_vars, time_col, censor_col, call.method=mock.call)
 
   return(results)
 }
@@ -83,7 +83,7 @@ mock.UMASS <- function(splits=5) {
   time_col <- "TIME"
   censor_col <- "CENSOR"
 
-  return(mock(df, expl_vars, time_col, censor_col, splits=splits))
+  return(dcoxph.mock(df, expl_vars, time_col, censor_col, splits=splits))
 }
 
 #' Run the computation locally on the UIS Drug treatment study dataset from
@@ -98,7 +98,7 @@ mock.UMASS.univariate <- function(splits=5) {
   time_col <- "TIME"
   censor_col <- "CENSOR"
 
-  return(mock(df, expl_vars, time_col, censor_col, splits=splits))
+  return(dcoxph.mock(df, expl_vars, time_col, censor_col, splits=splits))
 }
 
 
@@ -120,7 +120,7 @@ run.SEER <- function(username, password, collaboration_id, host='https://api.dis
   time_col <- "Time"
   censor_col <- "Censor"
 
-  results <- run(client, expl_vars, time_col, censor_col)
+  results <- dcoxph(client, expl_vars, time_col, censor_col)
   return(results)
 }
 

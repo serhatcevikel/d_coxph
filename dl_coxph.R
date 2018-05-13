@@ -80,11 +80,7 @@ RPC_get_unique_event_times_and_counts <- function(df, time_col, censor_col) {
 
   df_time <- as.data.frame(table(time), stringsAsFactors=F)
 
-  fp <- textConnection("df_time_data", open="w")
-  saveRDS(df_time, fp, ascii=T)
-  close(fp)
-
-  return(df_time_data)
+  return(df_time)
 }
 
 #' Compute the aggregate statistic of step 2
@@ -115,26 +111,22 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
   # summing over all cases with events.
   summed_zs <- colSums(cases_with_events)
 
-  # Serialize the result
-  fp <- textConnection("summed_zs_data", open="w")
-  saveRDS(summed_zs, fp, ascii=T)
-  close(fp)
-
-  return(summed_zs_data)
+  return(summed_zs)
 }
 
 #' Compute the three aggretated statistics needed for an iteration
 #'
 #' Params:
-#' df: dataframe
-#' expl_vars: list of explanatory variables (covariates) to use
-#' time_col: name of the column that contains the event/censor times
-#' censor_col: name of the colunm that explains whether an event occured or
-#'             the patient was censored
-#' beta: vector of beta coefficients (length(beta) == length(expl_vars))
-#' times: vector of *globally* unique event times
+#'   df: dataframe
+#'   expl_vars: list of explanatory variables (covariates) to use
+#'   time_col: name of the column that contains the event/censor times
+#'   censor_col: name of the colunm that explains whether an event occured or
+#'               the patient was censored
+#'   beta: vector of beta coefficients (length(beta) == length(expl_vars))
+#'   times: vector of *globally* unique event times
 #'
-#' Return: list containing aggretated statistics
+#' Return: 
+#'   list containing aggretated statistics
 RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, unique_event_times) {
     data <- pre_process_data(df, expl_vars, censor_col, time_col)
 
@@ -184,23 +176,11 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
       agg3[i, , ] <- summed
     }
 
-    fp <- textConnection("agg1_data", open="w")
-    saveRDS(agg1, fp, ascii=T)
-    close(fp)
-
-    fp <- textConnection("agg2_data", open="w")
-    saveRDS(agg2, fp, ascii=T)
-    close(fp)
-
-    fp <- textConnection("agg3_data", open="w")
-    saveRDS(agg3, fp, ascii=T)
-    close(fp)
-
     return(
       list(
-        agg1=agg1_data,
-        agg2=agg2_data,
-        agg3=agg3_data
+        agg1=agg1,
+        agg2=agg2,
+        agg3=agg3
       )
     )
 }
@@ -311,9 +291,10 @@ compute_derivatives <- function(z_hat, D_all, aggregates) {
 # ******************************************************************************
 
 #' Run the method requested by the server
-run_RPC <- function(df, input_data) {
+dispatch_RPC <- function(df, input_data) {
   # Determine which method was requested and combine arguments and keyword
   # arguments in a single variable
+  input_data <- fromJSON(input_data)
   method <- sprintf("RPC_%s", input_data$method)
 
   input_data$args <- readRDS(textConnection(input_data$args))
@@ -324,6 +305,13 @@ run_RPC <- function(df, input_data) {
   # Call the method
   writeln(sprintf("Calling %s", method))
   result <- do.call(method, args)
+
+  # Serialize the result
+  fp <- textConnection("result_data", open="w")
+  saveRDS(result, fp, ascii=T)
+  close(fp)
+  result <- result_data
+
   return(result)
 }
 
@@ -363,15 +351,21 @@ wait_for_results <- function(client, task) {
 
 #' Execute a method on the distributed learning infrastructure.
 #'
-#' This entails creating a task and letting the hubs execute the method
-#' specified in the 'input' parameter.
+#' This entails ...
+#'  * creating a task and letting the hubs execute the method
+#'    specified in the 'input' parameter
+#'  * waiting for all results to arrive
+#'  * deserializing each sites' result using readRDS
 #'
 #' Params:
 #'   client: ptmclient::Client instance.
 #'   method: name of the method to call on the distributed learning
 #'           infrastructure
-#'   ...: (keyword) arguments to provide to method; need to be JSON
-#'        serializable.
+#'   ...: (keyword) arguments to provide to method. The arguments are serialized
+#'        using `saveRDS()` by `create_task_input()`.
+#'
+#' Return:
+#'   return value of called method
 call <- function(client, method, ...) {
   # Create the json structure for the call to the server
   input <- create_task_input(method, ...)
@@ -392,13 +386,13 @@ call <- function(client, method, ...) {
 
   # result_dict is a list with the keys _id, id, description, complete, image,
   # collaboration, results, etc. the entry "results" is itself a list with
-  # one entry for each site. It needs a bit of work to convert the JSON response
-  # within a JSON response back to R data types.
+  # one entry for each site. The site's actual result is contained in the
+  # named list member 'result' and is encoded using saveRDS.
   sites <- result_dict$results
   results <- list()
 
   for (k in 1:length(sites)) {
-    results[[k]] <- fromJSON(sites[[k]]$result)
+    results[[k]] <- readRDS(textConnection(sites[[k]]$result))
   }
 
   return(results)
@@ -406,39 +400,57 @@ call <- function(client, method, ...) {
 
 
 #' Mock an RPC call to all sites.
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   method: name of the method to call on the distributed learning
+#'           infrastructure
+#'   ...: (keyword) arguments to provide to method. The arguments are serialized
+#'        using `saveRDS()` by `create_task_input()`.
+#'
+#' Return:
+#'   return value of called method
 mock.call <- function(client, method, ...) {
 
   writeln(sprintf('** Mocking call to "%s" **', method))
   datasets <- client$datasets
   input_data <- create_task_input(method, ...)
+  input_data <- toJSON(input_data)
 
   # Create a list to store the responses from the individual sites
-  result <- list()
+  results <- list()
 
   # Mock calling the RPC method on each site
   for (k in 1:length(datasets)) {
-    result[[k]] <- run_RPC(datasets[[k]], input_data)
+    result <- dispatch_RPC(datasets[[k]], input_data)
+    results[[k]] <- readRDS(textConnection(result))
   }
 
   writeln()
-  return(result)
+  return(results)
 }
 
 
-#' Run the algorithm.
+#' Run the distributed CoxPH algorithm.
 #'
-#' Depending on the value of call.method the algorithm runs locally or on the
-#' distributed learning infrastructure.
-run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
+#' By specifying call.method=mock.call the algorithm runs locally.
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   expl_vars: list of explanatory variables (covariates) to use
+#'   time_col: name of the column that contains the event/censor times
+#'   censor_col: name of the colunm that explains whether an event occured or
+#'               the patient was censored
+#'
+#' Return:
+#'   data.frame with beta, p-value and confidence interval for each explanatory
+#'   variable.
+dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
   m <- length(expl_vars)
 
   # Ask all hubs to return their unique event times with counts
   writeln("Getting unique event times and counts")
   results <- call.method(client, "get_unique_event_times_and_counts", time_col, censor_col)
-
-  for (k in 1:length(results)) {
-    results[[k]] <- readRDS(textConnection(results[[k]]))
-  }
 
   Ds <- lapply(results, as.data.frame)
 
@@ -448,10 +460,6 @@ run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
   # Ask all hubs to compute the summed Z statistic
   writeln("Getting the summed Z statistic")
   summed_zs <- call.method(client, "compute_summed_z", expl_vars, time_col, censor_col)
-
-  for (k in 1:length(summed_zs)) {
-    summed_zs[[k]] <- readRDS(textConnection(summed_zs[[k]]))
-  }
 
   # z_hat: vector of same length m
   # Need to jump through a few hoops because apply simplifies a matrix with one row
@@ -479,12 +487,6 @@ run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
     writeln()
 
     aggregates <- call.method(client, "perform_iteration", expl_vars, time_col, censor_col, beta, unique_event_times)
-
-    for (k in 1:length(aggregates)) {
-      aggregates[[k]]$agg1 <- readRDS(textConnection(aggregates[[k]]$agg1))
-      aggregates[[k]]$agg2 <- readRDS(textConnection(aggregates[[k]]$agg2))
-      aggregates[[k]]$agg3 <- readRDS(textConnection(aggregates[[k]]$agg3))
-    }
 
     # Compute the primary and secondary derivatives
     derivatives <- compute_derivatives(z_hat, D_all, aggregates)
@@ -530,8 +532,23 @@ run <- function(client, expl_vars, time_col, censor_col, call.method=call) {
 }
 
 
-#' Run the algorithm locally
-mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
+#' Run the distributed CoxPH algorithm locally
+#'
+#' Splits the provided data frame in `splits` equal parts and runs 
+#' `dcoxph()` with `call.method=mock.call`. 
+#'
+#' Params:
+#'   client: ptmclient::Client instance.
+#'   expl_vars: list of explanatory variables (covariates) to use
+#'   time_col: name of the column that contains the event/censor times
+#'   censor_col: name of the colunm that explains whether an event occured or
+#'               the patient was censored
+#'   splits: number of parts to split the data set in
+#'
+#' Return:
+#'   data.frame with beta, p-value and confidence interval for each explanatory
+#'   variable.
+dcoxph.mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
 
   datasets <- list()
 
@@ -540,35 +557,44 @@ mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
   }
 
   client <- MockClient(datasets)
-  results <- run(client, expl_vars, time_col, censor_col, call.method=mock.call)
+  results <- dcoxph(client, expl_vars, time_col, censor_col, call.method=mock.call)
   return(results)
 }
 
 
 #' Entrypoint when excecuting this script using Rscript
 #'
-#' Wraps the docker input/output for run_RPC().
-docker.main <- function() {
+#' Wraps the docker input/output for `dispatch_RPC()`.
+#' Deserialization/serialization is performed in `dipatch_RPC()` to enable
+#' testing.
+docker.wrapper <- function() {
   database_uri <- Sys.getenv("DATABASE_URI")
   writeln(sprintf("Using '%s' as database", database_uri))
   df <- read.csv(database_uri)
 
   writeln("Loading input.txt")
-  input_data <- fromJSON(readLines('input.txt'))
+  # input_data <- fromJSON(readLines('input.txt'))
+  # input_data <- readLines('input.txt')
+
+  filename <- 'input.txt'
+  input_data <- readChar(filename, file.info(filename)$size)
 
   writeln("Dispatching ...")
-  result <- run_RPC(df, input_data)
+  result <- dispatch_RPC(df, input_data)
 
   # Write result to disk
   writeln("Writing result to disk .. ")
-  writeLines(toJSON(result), "output.txt")
+  writeLines(result, "output.txt")
 
   writeln("")
   writeln("[DONE!]")
 }
 
 
+# ******************************************************************************
+# ---- main() ----
+# ******************************************************************************
 if (!interactive()) {
-    docker.main()
+    docker.wrapper()
 }
 
