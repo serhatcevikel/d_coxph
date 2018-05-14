@@ -100,7 +100,7 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
 
   data <- pre_process_data(df, expl_vars, censor_col, time_col)
 
-  #set condition to enable univariate Cox
+  # Set condition to enable univariate Cox
   if (dim(data$Z)[2] > 1) {
     cases_with_events <- data$Z[data$censor == 1, ]
   } else {
@@ -125,7 +125,7 @@ RPC_compute_summed_z <- function(df, expl_vars, time_col, censor_col) {
 #'   beta: vector of beta coefficients (length(beta) == length(expl_vars))
 #'   times: vector of *globally* unique event times
 #'
-#' Return: 
+#' Return:
 #'   list containing aggretated statistics
 RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, unique_event_times) {
     data <- pre_process_data(df, expl_vars, censor_col, time_col)
@@ -193,10 +193,11 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
 #' tie-counts from the individual sites.
 #'
 #' Params:
-#' Ds: list of *local* tie-counts, indexed by site nr
+#'   Ds: list of *local* tie-counts, indexed by site nr
 #'
-#' Return: numeric vector with tie-counts and named index with unique
-#'         event times
+#' Return:
+#'   numeric vector with tie-counts and named index with unique
+#'   event times
 compute_combined_ties <- function(Ds) {
 
   # Merge the list of event times & counts into a single data frame
@@ -291,6 +292,14 @@ compute_derivatives <- function(z_hat, D_all, aggregates) {
 # ******************************************************************************
 
 #' Run the method requested by the server
+#'
+#' Params:
+#'   df: data frame containing the *local* dataset
+#'   input_data: string containing serialized JSON; JSON should contain
+#'               the keys 'method', 'args' and 'kwargs'
+#'
+#' Return:
+#'   Requested method's output
 dispatch_RPC <- function(df, input_data) {
   # Determine which method was requested and combine arguments and keyword
   # arguments in a single variable
@@ -534,11 +543,11 @@ dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
 
 #' Run the distributed CoxPH algorithm locally
 #'
-#' Splits the provided data frame in `splits` equal parts and runs 
-#' `dcoxph()` with `call.method=mock.call`. 
+#' Splits the provided data frame in `splits` equal parts and runs
+#' `dcoxph()` with `call.method=mock.call`.
 #'
 #' Params:
-#'   client: ptmclient::Client instance.
+#'   df: data frame containing the *full* dataset
 #'   expl_vars: list of explanatory variables (covariates) to use
 #'   time_col: name of the column that contains the event/censor times
 #'   censor_col: name of the colunm that explains whether an event occured or
@@ -572,10 +581,8 @@ docker.wrapper <- function() {
   writeln(sprintf("Using '%s' as database", database_uri))
   df <- read.csv(database_uri)
 
+  # Read the contents of file input.txt into 'input_data'
   writeln("Loading input.txt")
-  # input_data <- fromJSON(readLines('input.txt'))
-  # input_data <- readLines('input.txt')
-
   filename <- 'input.txt'
   input_data <- readChar(filename, file.info(filename)$size)
 
