@@ -7,7 +7,8 @@
 #'   on an article from [Lu et al](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5009917/).
 #'
 #'   This implementation can be used with the PyTaskManager distributed learning
-#'   infrastructure (see https://github.com/mellesies/pytaskmanager).
+#'   infrastructure (see https://github.com/IKNL/pytaskmanager).
+#'
 #' author:
 #'   Melle Sieswerda <m.sieswerda@iknl.nl>
 #'   Anna van der Zalm <a.vanderzalm@iknl.nl>
@@ -21,6 +22,8 @@
 library(rjson)
 library(dplyr)
 
+# Constants
+MAX_COMPLEXITY = 250000
 
 # ******************************************************************************
 # ---- Helper functions ----
@@ -142,6 +145,7 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
     dimnames(agg3) <- list(NULL, expl_vars, expl_vars)
 
     for (i in 1:D) {
+      cat('.')
       # Compute the risk set at time t; this includes *all* patients that have a
       # survival time greater than or equal to the current time
       R_i <- as.matrix(data$Z[data$time >= unique_event_times[i], ])
@@ -154,7 +158,7 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
       # Use apply to multiply each column (element-wise) in R_i with ebz
       z_ebz <- apply(R_i, 2, '*', ebz)
 
-      # Undo the simplification that apply does in case of a single row in R_i
+      # Undo the simplification that `apply` does in case of a single row in R_i
       if (nrow(R_i) == 1) {
         z_ebz <- t(z_ebz)
       }
@@ -175,6 +179,7 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
 
       agg3[i, , ] <- summed
     }
+    writeln('')
 
     return(
       list(
@@ -316,6 +321,7 @@ dispatch_RPC <- function(df, input_data) {
   result <- do.call(method, args)
 
   # Serialize the result
+  writeln("Serializing result")
   fp <- textConnection("result_data", open="w")
   saveRDS(result, fp, ascii=T)
   close(fp)
@@ -465,6 +471,15 @@ dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
 
   D_all <- compute_combined_ties(Ds)
   unique_event_times <- as.numeric(names(D_all))
+
+  complexity <- length(unique_event_times) * length(expl_vars)^2
+  writeln("********************************************")
+  writeln(c("Complexity:", complexity))
+  writeln("********************************************")
+
+  if (complexity > MAX_COMPLEXITY) {
+    stop("*** This computation will be too heavy on the nodes! Aborting! ***")
+  }
 
   # Ask all hubs to compute the summed Z statistic
   writeln("Getting the summed Z statistic")

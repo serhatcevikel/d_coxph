@@ -2,8 +2,7 @@ packages <- c(
   "abind",
   "dplyr",
   "httr",
-  "rjson",
-  "xml2"
+  "rjson"
 )
 
 install.packages(packages)
