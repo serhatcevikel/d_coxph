@@ -17,6 +17,9 @@
 #' license: MIT License
 #' ----------------------------------------------------------------------------
 
+# Change the working directory to the directory that contains this file.
+script.dir <- dirname(sys.frame(1)$ofile)
+setwd(script.dir)
 
 source("Client.R")
 source("dl_coxph.R")
