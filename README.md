@@ -1,9 +1,46 @@
 # dcoxph
-R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used with the [PyTaskManager](https://www.github.com/IKNL/pytaskmanager) distributed learning infrastructure.
+## About
+This repository hosts the R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used with the [PyTaskManager](https://www.github.com/IKNL/pytaskmanager) distributed learning infrastructure.
 
-The code is split into a local and a distributed part. Both parts are implemented in the same R script `dl_coxph.R`. The Docker registry at https://docker-registry.distributedlearning.ai already hosts an image with the distributed code. If you are using your own installation of the infrastructure, your/the researcher should create a Docker image that holds the distributed code (see also `build_docker.sh`) and push the image to a (private) Docker registry. 
+## How to use this algorithm?
+The following steps assume you have R (or RStudio) and git installed. If you run into trouble, please create an issue in the tracker.
 
-A researcher would start the analysis by:
+### 1. Getting the code
+First, clone the repository and enter the directory: 
+
+```bash
+git clone https://github.com/IKNL/dcoxph.git
+cd dcoxph
+```
+
+### 2. Installing dependencies
+Next, install the required packages in R. Either run the following in bash:
+```bash
+RScript install_packages.R
+```
+
+or run the following in R:
+```R
+packages <- c(
+  "abind",
+  "dplyr",
+  "httr",
+  "rjson"
+)
+
+install.packages(packages)
+```
+
+### 3. Optional: encapsulating the distributed code in a Docker image
+The code is split into a local and a distributed part. Both parts are implemented in the same R script `dl_coxph.R`. The Docker registry at https://docker-registry.distributedlearning.ai already hosts an image with the distributed code. I
+
+f you are using your own installation of the infrastructure, you/the researcher should create a Docker image that holds the distributed code (see also `build_docker.sh`) and push the image to a (private) Docker registry. This requires Docker to be installed on the machine.
+
+
+### 4. Running the algorithm
+This step assumes you have access to a central server and know your username, password and collaboration id. 
+
+A researcher then runs the analysis by:
 1. Creating a client that communicates with the distributed learning infrastructure
 1. Calling the method `dcoxph` with the appropriate parameters
 
