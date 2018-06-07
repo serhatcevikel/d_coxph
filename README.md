@@ -3,7 +3,7 @@
 This repository hosts the R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used with the [PyTaskManager](https://www.github.com/IKNL/pytaskmanager) distributed learning infrastructure.
 
 ## How to use this algorithm?
-The following steps assume you have R (or RStudio) and git installed. If you run into trouble, please create an issue in the tracker.
+The following steps assume you have [R](https://www.r-project.org) (and [RStudio](https://www.rstudio.com)) and [git](https://git-scm.com/downloads) installed. If you run into trouble, please create an issue in the tracker.
 
 ### 1. Getting the code
 First, clone the repository and enter the directory: 
