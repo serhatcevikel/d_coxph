@@ -1,20 +1,19 @@
 # dcoxph
 ## About
-R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used with the [PyTaskManager](https://www.github.com/IKNL/pytaskmanager) distributed learning infrastructure.
+This repository hosts the R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used with the [PyTaskManager](https://www.github.com/IKNL/pytaskmanager) distributed learning infrastructure.
 
-
-## Installing the algorithm
-The following steps assume you have R (or RStudio) installed.
-
+## How to use this algorithm?
+The following steps assume you have [R](https://www.r-project.org) (and [RStudio](https://www.rstudio.com)) and [git](https://git-scm.com/downloads) installed. If you run into trouble, please create an issue in the tracker.
 
 ### 1. Getting the code
-First, clone the repository: 
+First, clone the repository and enter the directory: 
 
 ```bash
 git clone https://github.com/IKNL/dcoxph.git
+cd dcoxph
 ```
 
-### 2. stalling dependencies
+### 2. Installing dependencies
 Next, install the required packages in R. Either run the following in bash:
 ```bash
 RScript install_packages.R
@@ -39,7 +38,9 @@ f you are using your own installation of the infrastructure, you/the researcher 
 
 
 ### 4. Running the algorithm
-A researcher runs the analysis by:
+This step assumes you have access to a central server and know your username, password and collaboration id. 
+
+A researcher then runs the analysis by:
 1. Creating a client that communicates with the distributed learning infrastructure
 1. Calling the method `dcoxph` with the appropriate parameters
 
