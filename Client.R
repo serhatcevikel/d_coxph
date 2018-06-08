@@ -11,41 +11,6 @@ writeln <- function(x="", sep=" ") {
   cat(paste(paste(x, collapse=sep), "\n"))
 }
 
-#' Create a data structure used as input for a call to the distributed
-#' learning infrastructure.
-create_task_input = function(method, ...) {
-  # Construct the input_data list from the ellipsis.
-  # This list is normally provided as JSON by the server.
-  arguments <- list(...)
-
-  if (is.null(names(arguments))) {
-    args <- arguments
-    kwargs <- list()
-
-  } else {
-    args <- arguments[names(arguments) == ""]
-    kwargs <- arguments[names(arguments) != ""]
-  }
-
-  fp <- textConnection("arg_data", open="w")
-  saveRDS(args, fp, ascii=T)
-  close(fp)
-
-  fp <- textConnection("kwarg_data", open="w")
-  saveRDS(kwargs, fp, ascii=T)
-  close(fp)
-
-
-  input_data <- list(
-    method=method,
-    args=arg_data,
-    kwargs=kwarg_data
-  )
-
-  return(input_data)
-}
-
-
 # ******************************************************************************
 # ---- class Client ----
 # ******************************************************************************
