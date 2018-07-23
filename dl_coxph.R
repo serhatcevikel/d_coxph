@@ -44,6 +44,7 @@ list.to.matrix <- function(l) {
 #' Split the dataframe column wise into covariate, censor and time columns.
 pre_process_data <- function(df, expl_vars, censor_col, time_col) {
   # Sort the dataframe/matrix by time
+  df[, time_col] = as.numeric(df[, time_col])
   sort_idx <- order(df[, time_col])
   df <- df[sort_idx, ]
 
@@ -82,7 +83,7 @@ RPC_get_unique_event_times_and_counts <- function(df, time_col, censor_col) {
   time <- sort(time)
 
   df_time <- as.data.frame(table(time), stringsAsFactors=F)
-
+  df_time <- apply(df_time, 2, as.numeric)
   return(df_time)
 }
 
@@ -179,6 +180,7 @@ RPC_perform_iteration <- function(df, expl_vars, time_col, censor_col, beta, uni
 
       agg3[i, , ] <- summed
     }
+
     writeln('')
 
     return(
@@ -326,6 +328,7 @@ dispatch_RPC <- function(df, input_data) {
   saveRDS(result, fp, ascii=T)
   close(fp)
   result <- result_data
+  writeln("Serializing complete")
 
   return(result)
 }
