@@ -446,7 +446,7 @@ call <- function(client, method, ...) {
   # collaboration, results, etc. the entry "results" is itself a list with
   # one entry for each site. The site's actual result is contained in the
   # named list member 'result' and is encoded using saveRDS.
-  sites <- result_dict$rhedesults
+  sites <- result_dict$results
   results <- list()
 
   for (k in 1:length(sites)) {
