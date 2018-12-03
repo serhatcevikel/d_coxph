@@ -6,7 +6,7 @@
 HOST=docker-registry.distributedlearning.ai
 PORT=443
 
-IMAGE=dl_coxph
+IMAGE=dl_coxph:latest
 
 docker build -t custom-r-base -f Dockerfile.custom-r-base .
 
