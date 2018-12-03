@@ -111,9 +111,9 @@ mock.UMASS.univariate <- function(splits=5) {
 # ******************************************************************************
 
 #' Apply CoxPH to the SEER dataset
-run.SEER <- function(username, password, collaboration_id, host='https://api.distributedlearning.ai') {
+run.SEER <- function(username, password, collaboration_id, host='https://api-test.distributedlearning.ai', api_path='/api') {
   # Create a client object to communicate with the server.
-  client <- Client(host, username, password, collaboration_id)
+  client <- Client(host, username, password, collaboration_id, api_path)
   client$authenticate()
 
   # Parameters used to interpret the hub's datastore
