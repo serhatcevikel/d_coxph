@@ -48,7 +48,8 @@ Client <- function(host, username, password, collaboration_id, api_path='') {
     #' Authenticate with the server; sets the access and refresh tokens.
     authenticate = function() {
       # Create the URL and data for the JSON body
-      url <- paste(env$host, env$api_path, '/token', sep='')
+      # url <- paste(env$host, env$api_path, '/token', sep='')
+      url <- paste(env$host, env$api_path, '/token/user', sep='')
 
       data <- list(
         username=env$username,
@@ -120,6 +121,7 @@ Client <- function(host, username, password, collaboration_id, api_path='') {
 
         } else {
           stop(msg)
+
         }
 
       }
@@ -141,6 +143,11 @@ Client <- function(host, username, password, collaboration_id, api_path='') {
     PUT = function(path, data=NULL) {
       return(self$request("PUT", path, data))
     },
+
+    #' Create a task on the server
+    # create_task = function() {
+    #
+    # }
 
     #' Return a string representation of this Client
     repr = function() {

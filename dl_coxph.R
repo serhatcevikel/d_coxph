@@ -311,12 +311,12 @@ compute_derivatives <- function(z_hat, D_all, aggregates) {
 #' Return:
 #'   data.frame with beta, p-value and confidence interval for each explanatory
 #'   variable.
-dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
+dcoxph <- function(client, expl_vars, time_col, censor_col, database='', call.method=call) {
   m <- length(expl_vars)
 
   # Ask all nodes to return their unique event times with counts
   writeln("Getting unique event times and counts")
-  results <- call.method(client, "get_unique_event_times_and_counts", time_col, censor_col)
+  results <- call.method(client, "get_unique_event_times_and_counts", database, time_col, censor_col)
 
   Ds <- lapply(results, as.data.frame)
 
@@ -332,9 +332,9 @@ dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
     stop("*** This computation will be too heavy on the nodes! Aborting! ***")
   }
 
-  # Ask all hubs to compute the summed Z statistic
+  # Ask all nodes to compute the summed Z statistic
   writeln("Getting the summed Z statistic")
-  summed_zs <- call.method(client, "compute_summed_z", expl_vars, time_col, censor_col)
+  summed_zs <- call.method(client, "compute_summed_z", database, expl_vars, time_col, censor_col)
 
   # z_hat: vector of same length m
   # Need to jump through a few hoops because apply simplifies a matrix with one row
@@ -361,7 +361,7 @@ dcoxph <- function(client, expl_vars, time_col, censor_col, call.method=call) {
     print(delta)
     writeln()
 
-    aggregates <- call.method(client, "perform_iteration", expl_vars, time_col, censor_col, beta, unique_event_times)
+    aggregates <- call.method(client, "perform_iteration", database, expl_vars, time_col, censor_col, beta, unique_event_times)
 
     # Compute the primary and secondary derivatives
     derivatives <- compute_derivatives(z_hat, D_all, aggregates)
@@ -454,7 +454,6 @@ dcoxph.mock <- function(df, expl_vars, time_col, censor_col, splits=5) {
 dispatch_RPC <- function(df, input_data) {
   # Determine which method was requested and combine arguments and keyword
   # arguments in a single variable
-  input_data <- fromJSON(input_data)
   method <- sprintf("RPC_%s", input_data$method)
 
   input_data$args <- readRDS(textConnection(input_data$args))
@@ -498,8 +497,8 @@ wait_for_results <- function(client, task) {
       break
 
     } else {
-      # Wait 30 seconds
-      writeln("Sleeping ...")
+      # Wait n seconds
+      writeln("Waiting for results ...")
       Sys.sleep(5)
     }
   }
@@ -550,7 +549,7 @@ create_task_input = function(method, ...) {
 #' Execute a method on the distributed learning infrastructure.
 #'
 #' This entails ...
-#'  * creating a task and letting the hubs execute the method
+#'  * creating a task and letting the nodes execute the method
 #'    specified in the 'input' parameter
 #'  * waiting for all results to arrive
 #'  * deserializing each sites' result using readRDS
@@ -564,7 +563,7 @@ create_task_input = function(method, ...) {
 #'
 #' Return:
 #'   return value of called method
-call <- function(client, method, ...) {
+call <- function(client, method, database='', ...) {
   # Create the json structure for the call to the server
   input <- create_task_input(method, ...)
 
@@ -573,6 +572,7 @@ call <- function(client, method, ...) {
     "image"="docker-registry.distributedlearning.ai/dl_coxph",
     "collaboration_id"=client$get("collaboration_id"),
     "input"=input,
+    "database"=database,
     "description"=""
   )
 
@@ -608,7 +608,7 @@ call <- function(client, method, ...) {
 #'
 #' Return:
 #'   return value of called method
-mock.call <- function(client, method, ...) {
+mock.call <- function(client, method, database='', ...) {
 
   writeln(sprintf('** Mocking call to "%s" **', method))
   datasets <- client$datasets
@@ -629,20 +629,17 @@ mock.call <- function(client, method, ...) {
 }
 
 
-#' Entrypoint when excecuting this script using Rscript
-#'
-#' Wraps the docker input/output for `dispatch_RPC()`.
-#' Deserialization/serialization is performed in `dipatch_RPC()` to enable
-#' testing.
-docker.wrapper <- function() {
+docker.master <- function(input_data) {
+  writeln("Running as master!")
+}
+
+docker.node <- function(input_data) {
+  writeln("Running as node!")
+
+  # Load data from CSV
   database_uri <- Sys.getenv("DATABASE_URI")
   writeln(sprintf("Using '%s' as database", database_uri))
   df <- read.csv(database_uri)
-
-  # Read the contents of file input.txt into 'input_data'
-  writeln("Loading input.txt")
-  filename <- 'input.txt'
-  input_data <- readChar(filename, file.info(filename)$size)
 
   writeln("Dispatching ...")
   result <- dispatch_RPC(df, input_data)
@@ -650,6 +647,27 @@ docker.wrapper <- function() {
   # Write result to disk
   writeln("Writing result to disk .. ")
   writeLines(result, "output.txt")
+}
+
+#' Entrypoint when excecuting this script using Rscript
+#'
+#' Wraps the docker input/output for `dispatch_RPC()`.
+#' Deserialization/serialization is performed in `dipatch_RPC()` to enable
+#' testing.
+docker.wrapper <- function() {
+  # Read the contents of file input.txt into 'input_data'
+  writeln("Loading input.txt ...")
+  filename <- 'input.txt'
+  input_data <- readChar(filename, file.info(filename)$size)
+  input_data <- fromJSON(input_data)
+
+  if (!is.null(input_data$role) && input_data$role == "master") {
+    docker.master(input_data)
+
+  } else {
+    docker.node(input_data)
+
+  }
 
   writeln("")
   writeln("[DONE!]")

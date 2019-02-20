@@ -123,10 +123,26 @@ run.SEER <- function(username, password, collaboration_id, host='https://api-tes
   time_col <- "Time"
   censor_col <- "Censor"
 
+  # results <- dcoxph(client, expl_vars, time_col, censor_col, database='SEER')
   results <- dcoxph(client, expl_vars, time_col, censor_col)
   return(results)
 }
 
+
+#' Apply CoxPH to the SEER dataset
+run.UMASS <- function(username, password, collaboration_id, host='https://api-test.distributedlearning.ai', api_path='/api') {
+  # Create a client object to communicate with the server.
+  client <- Client(host, username, password, collaboration_id, api_path)
+  client$authenticate()
+
+  # Parameters used to interpret the hub's datastore
+  expl_vars <- c("AAE", "BDS", "HU", "CU", "IVDUPN", "IVDURN", "NPDT", "RACE", "TREAT", "SITE")
+  time_col <- "TIME"
+  censor_col <- "CENSOR"
+
+  results <- dcoxph(client, expl_vars, time_col, censor_col, database='UMASS')
+  return(results)
+}
 
 
 
