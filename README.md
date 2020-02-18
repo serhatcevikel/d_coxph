@@ -1,6 +1,8 @@
+<img src="https://github.com/IKNL/guidelines/blob/master/resources/logos/vantage6.png?raw=true" width=200 align="right">
+
 # dcoxph
 ## About
-This repository hosts the R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used with the [PyTaskManager](https://www.github.com/IKNL/pytaskmanager) distributed learning infrastructure.
+This repository hosts the R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used in [VANTAGE6](https://github.com/IKNL/VANTAGE6).
 
 ## How to use this algorithm?
 The following steps assume you have [R](https://www.r-project.org) (and [RStudio](https://www.rstudio.com)) and [git](https://git-scm.com/downloads) installed. If you run into trouble, please create an issue in the tracker.
