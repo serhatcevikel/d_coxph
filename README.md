@@ -1,6 +1,6 @@
 <img src="https://github.com/IKNL/guidelines/blob/master/resources/logos/vantage6.png?raw=true" width=200 align="right">
 
-# dcoxph
+# d_coxph
 ## About
 This repository hosts the R implementation of the distributed Cox Proportional Hazards algorithm as described by [Lu et al.](https://www.ncbi.nlm.nih.gov/pubmed/26159465) that can be used in [VANTAGE6](https://github.com/IKNL/VANTAGE6).
 
